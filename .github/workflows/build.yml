@@ -1,0 +1,68 @@
+name: Build Executable
+run-name: PyForge ${{ inputs.build_id }}
+on:
+  workflow_dispatch:
+    inputs:
+      build_id:
+        description: 'PyForge build id'
+        required: true
+      repo_owner:
+        description: 'Source repo owner'
+        required: true
+      repo_name:
+        description: 'Source repo name'
+        required: true
+      entry_point:
+        description: 'Entry point .py file'
+        required: true
+      source_branch:
+        description: 'Source branch'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.repo_owner }}/${{ inputs.repo_name }}
+          ref: ${{ inputs.source_branch }}
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          if [ -f setup.py ] || [ -f pyproject.toml ]; then pip install . || true; fi
+          pip install pyinstaller
+      - name: Build executable
+        shell: bash
+        env:
+          ENTRY: ${{ inputs.entry_point }}
+        run: |
+          if [[ "$ENTRY" == */__main__.py ]]; then
+            PKG_PATH="${ENTRY%/__main__.py}"
+            MODULE="${PKG_PATH//\//.}"
+            TOP="${PKG_PATH%%/*}"
+            echo "import runpy" > pyforge_launcher.py
+            echo "runpy.run_module('$MODULE', run_name='__main__', alter_sys=True)" >> pyforge_launcher.py
+            pyinstaller --onefile --name app --clean --paths . --collect-submodules "$TOP" pyforge_launcher.py
+          else
+            pyinstaller --onefile --name app --clean --paths . "$ENTRY"
+          fi
+      - name: Upload executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: executable
+          path: dist/app.exe
+          if-no-files-found: error
+          retention-days: 1
