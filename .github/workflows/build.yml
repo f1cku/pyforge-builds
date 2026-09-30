@@ -64,4 +64,4 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BUILD_ID: ${{ inputs.build_id }}
-        run: gh release create "v${BUILD_ID}" dist/app.exe --title "PyForge ${BUILD_ID}" --notes "Auto-generated Windows executable"
+        run: gh release create "v${BUILD_ID}" dist/app.exe --repo "${{ github.repository }}" --title "PyForge ${BUILD_ID}" --notes "Auto-generated Windows executable"
